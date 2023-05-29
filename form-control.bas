@@ -39,6 +39,10 @@ Function ShowOrHideRows(fieldName As String, relatedRange As String)
     '將條件分割
     Dim conditionsStr As String
     conditionsStr = Split(fieldName, "__")(0)
+    '全形轉半形
+    conditionsStr = StrConv(conditionsStr, vbNarrow)
+    '小寫轉大寫
+    conditionsStr = UCase(conditionsStr)
 
     Dim actionValue As String
     actionValue = Split(fieldName, "__")(1)
@@ -95,9 +99,8 @@ Function CheckCondition(condition As String) As Boolean
     
     Dim inputTmpString As String
 
-    '將字串內出現的 "_and_" 與 "_or_" 替換成 "|"
-    inputTmpString = Replace(condition, "_and_", "|")
-    inputTmpString = Replace(condition, "_or_", "|")
+    '將字串內出現的 "_and_" 與 "_or_" 替換成 "|",　"..R.." 與 "..L.." 去除
+    inputTmpString = Replace(Replace(Replace(Replace(condition, "..R..", ""), "..L..", ""), "_AND_", "|"), "_OR_", "|")
 
     '宣告條件陣列
     Dim columnInfoArray() As String
@@ -109,9 +112,21 @@ Function CheckCondition(condition As String) As Boolean
     For Each columnInfo In columnInfoArray
         ResultCondition = Replace(ResultCondition, columnInfo, CheckFieldValue(columnInfo))
     Next columnInfo
-
+    
+    '將字串內出現的 "_and_" 與 "_or_" 替換成 "*" 與 "+"
+    ResultCondition = Replace(Replace(ResultCondition, "_AND_", "*"), "_OR_", "+")
+    '將字串內出現的 "True" 與 "False" 替換成 "1" 與 "0"
+    ResultCondition = Replace(Replace(ResultCondition, "True", "1"), "False", "0")
+    '將字串內出現的 "..L.." 替換成 "(" 及 "..R.."替換成 ")"
+    ResultCondition = Replace(ResultCondition, "..L..", "(")
+    ResultCondition = Replace(ResultCondition, "..R..", ")")
+    
     '計算 ResultCondition 的結果
-    ResultBool = Evaluate(ResultCondition)
+    If Evaluate(ResultCondition) > 0 Then
+        ResultBool = True
+    Else
+        ResultBool = False
+    End If
     CheckCondition = ResultBool
 End Function
 Function CheckFieldValue(columnInfo As Variant) As String
