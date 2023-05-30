@@ -28,12 +28,13 @@ Function CheckAllCellNames()
     '獲取當前工作表
     Set ws = wb.ActiveSheet
     '獲取當前工作表的所有命名區域
-    For Each nm In wb.Names
-        If InStr(1, nm.RefersTo, ws.Name) > 0 Then
+    For Each nm In ws.Names
+        If InStr(1, nm.Name, "__") > 0 And InStr(1, nm.Name, ".") > 0 Then
             ShowOrHideRows nm.Name, nm.RefersTo
         End If
     Next nm
 End Function
+
 Function ShowOrHideRows(fieldName As String, relatedRange As String)
     'ex: "B2.YES_and_B3.NO_or_B4.YES__SHOW"
     '將條件分割
@@ -57,7 +58,13 @@ Function ShowOrHideRows(fieldName As String, relatedRange As String)
     
     '獲取sheetName
     Dim sheetName As String
-    sheetName = Split(relatedRange, "!")(0)
+    Dim sheetNameForRange As String
+    sheetNameForRange = Split(relatedRange, "!")(0)
+    
+    '去除 "="
+    sheetName = Replace(sheetNameForRange, "=", "")
+    '去除 "'"
+    sheetName = Replace(sheetName, "'", "")
 
     '擷取命名中之起始欄位範圍，存入 startCell，若僅為"=Sheet1!$7:$8"，則為 A7
     Dim startCell As String
@@ -76,20 +83,36 @@ Function ShowOrHideRows(fieldName As String, relatedRange As String)
     End If
     
     Dim targetRange As Range
-    Set targetRange = Range(sheetName & "!" & startCell & ":" & endCell)
+    Set targetRange = Range(sheetNameForRange & "!" & startCell & ":" & endCell)
 
     '檢查每個條件, 若有一個條件不符合, 則不顯示
     If CheckCondition(conditionsStr) Then
         If actionValue = "SHOW" Then
+            '顯示 Row
             targetRange.EntireRow.Hidden = False
         ElseIf actionValue = "HIDE" Then
+            '隱藏 Row
             targetRange.EntireRow.Hidden = True
+        ElseIf actionValue = "SHOWSHEET" Then
+            '顯示 WorkSheet
+            Worksheets(sheetName).Visible = True
+        ElseIf actionValue = "HIDESHEET" Then
+            '隱藏 WorkSheet
+            Worksheets(sheetName).Visible = False
         End If
     ElseIf Not CheckCondition(conditionsStr) Then
         If actionValue = "SHOW" Then
+            '隱藏 Row
             targetRange.EntireRow.Hidden = True
         ElseIf actionValue = "HIDE" Then
+            '顯示 Row
             targetRange.EntireRow.Hidden = False
+        ElseIf actionValue = "SHOWSHEET" Then
+            '隱藏 WorkSheet
+            Worksheets(sheetName).Visible = False
+        ElseIf actionValue = "HIDESHEET" Then
+            '顯示 WorkSheet
+            Worksheets(sheetName).Visible = True
         End If
     End If
 End Function
@@ -159,9 +182,42 @@ Function CheckFieldValue(columnInfo As Variant) As String
     '小寫轉大寫
     targetValue = UCase(targetValue)
 
-    If targetValue = fieldValue Then
+    '檢查目標欄位的值是否等於條件欄位的值，或目標欄位包含條件欄位的值
+    If targetValue = fieldValue Or InStr(1, targetValue, fieldValue, vbTextCompare) > 0 Then
         CheckFieldValue = "True"
-    ElseIf targetValue <> fieldValue Then
+    Else
         CheckFieldValue = "False"
     End If
 End Function
+
+Public Sub RescopeNamedRangesToWorksheet()
+Dim wb As Workbook
+Dim ws As Worksheet
+Dim objName As Name
+Dim sWsName As String
+Dim sWbName As String
+Dim sRefersTo As String
+Dim sObjName As String
+Set wb = ActiveWorkbook
+Set ws = ActiveSheet
+sWsName = ws.Name
+sWbName = wb.Name
+
+'Loop through names in worksheet.
+For Each objName In wb.Names
+'Check name is visble.
+    If objName.Visible = True Then
+'Check name refers to a range on the active sheet.
+        If InStr(1, objName.RefersTo, sWsName, vbTextCompare) Then
+            sRefersTo = objName.RefersTo
+            sObjName = objName.Name
+'Check name is scoped to the workbook.
+            If objName.Parent.Name = sWbName Then
+'Delete the current name scoped to workbook replacing with worksheet scoped name.
+                objName.Delete
+                ws.Names.Add Name:=sObjName, RefersTo:=sRefersTo
+            End If
+        End If
+    End If
+Next objName
+End Sub
