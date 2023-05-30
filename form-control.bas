@@ -46,6 +46,10 @@ Function ShowOrHideRows(fieldName As String, relatedRange As String)
 
     Dim actionValue As String
     actionValue = Split(fieldName, "__")(1)
+    '若包含"."，則再分割一次，取第一個
+    If InStr(1, actionValue, ".") > 0 Then
+        actionValue = Split(actionValue, ".")(0)
+    End If
     '全形轉半形
     actionValue = StrConv(actionValue, vbNarrow)
     '小寫轉大寫
