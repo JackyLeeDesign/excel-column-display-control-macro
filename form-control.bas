@@ -83,7 +83,13 @@ Function ShowOrHideRows(fieldName As String, relatedRange As String)
     End If
     
     Dim targetRange As Range
-    Set targetRange = Range(sheetNameForRange & "!" & startCell & ":" & endCell)
+
+    '若actionValue為SHOWSHEET或HIDESHEET，則targetRange為當前sheet的A1
+    If actionValue = "SHOWSHEET" Or actionValue = "HIDESHEET" Then
+        Set targetRange = Range("A1:A1")
+    Else
+        Set targetRange = Range(sheetNameForRange & "!" & startCell & ":" & endCell)
+    End If
 
     '檢查每個條件, 若有一個條件不符合, 則不顯示
     If CheckCondition(conditionsStr) Then
