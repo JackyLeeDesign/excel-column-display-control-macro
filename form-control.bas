@@ -9,32 +9,43 @@ End Sub
 
 ' 建立一個模組，將底下程式碼放在模組內。
 Function CheckAllCellNames()
-    Dim targetRange As Range
-    Dim targetColumn As String
-    Dim targetValue As String
-    Dim targetRangeStr As String
-    Dim cell As Range
-    Dim conditions() As String
-    Dim condition As Variant
-    Dim rangeStr As String
-    
-    Dim wb As Workbook
-    Dim ws As Worksheet
-    Dim nm As Name
-    Dim i As Integer
+    On Error GoTo ErrorHandler
+        Dim targetRange As Range
+        Dim targetColumn As String
+        Dim targetValue As String
+        Dim targetRangeStr As String
+        Dim cell As Range
+        Dim conditions() As String
+        Dim condition As Variant
+        Dim rangeStr As String
+        
+        Dim wb As Workbook
+        Dim ws As Worksheet
+        Dim nm As Name
+        Dim i As Integer
 
-    '獲取當前工作簿
-    Set wb = ActiveWorkbook
-    '獲取當前工作表
-    Set ws = wb.ActiveSheet
-    '獲取當前工作表的所有命名區域
-    For Each nm In ws.Names
-        If InStr(1, nm.Name, "__") > 0 And InStr(1, nm.Name, ".") > 0 Then
-            ShowOrHideRows nm.Name, nm.RefersTo
-        End If
-    Next nm
-End Function
-
+        '獲取當前工作簿
+        Set wb = ActiveWorkbook
+        '獲取當前工作表
+        Set ws = wb.ActiveSheet
+        '獲取當前工作表的所有命名區域
+        For Each nm In ws.Names
+            If InStr(1, nm.Name, "__") > 0 And InStr(1, nm.Name, ".") > 0 Then
+                isDo = True
+                '若命名區域參照範圍包含多個範圍，則跳出提醒視窗，顯示: nm.Name & " 命名區域之參照範圍包含多個範圍，請重新確認。"
+                If InStr(1, nm.RefersTo, "+") > 0 Then
+                    MsgBox nm.Name & " 命名區域之參照範圍包含多個範圍，請重新確認。"
+                    isDo = False
+                End If
+                If isDo = True Then
+                    ShowOrHideRows nm.Name, nm.RefersTo
+                End If
+            End If
+        Next nm
+    Exit Function
+    ErrorHandler:
+        MsgBox "程式在讀取命名規則時發生錯誤，規則名稱: " & nm.Name & ", 錯誤內容:" & Err.Description & ", 請確認該條件規則名稱與參照範圍是否正確，若仍無法排除問題，請聯繫 AI&T 同仁。"
+    End Function
 Function ShowOrHideRows(fieldName As String, relatedRange As String)
     'ex: "B2.YES_and_B3.NO_or_B4.YES__SHOW"
     '將條件分割
@@ -121,6 +132,7 @@ Function ShowOrHideRows(fieldName As String, relatedRange As String)
             Worksheets(sheetName).Visible = True
         End If
     End If
+    
 End Function
 Function CheckCondition(condition As String) As Boolean
     '宣告 ResultCondition 為字串
@@ -196,6 +208,7 @@ Function CheckFieldValue(columnInfo As Variant) As String
     End If
 End Function
 
+'僅在需要大量更改命名區域時使用
 Public Sub RescopeNamedRangesToWorksheet()
 Dim wb As Workbook
 Dim ws As Worksheet
