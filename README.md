@@ -63,15 +63,20 @@ Condition Setting: Specify the condition for each question for the named range b
 
 Action Execution: In the name of the named range, specify the action to be executed when the condition is met. You can use action keywords to indicate specific actions. For example, use "SHOW" to indicate the display of related questions, and use "HIDE" to indicate the hiding of related questions. To show or hide the worksheet, use "SHOWSHEET" or "HIDESHEET".
 
-## Example and Demo:
-Here is an example to show how to use Excel VBA Macro - Questionnaire Form Builder to create a questionnaire form:
-Questions: Question1, Question2 and Question3
-Answer fields: A2, A5 and A8
-Assume the following condition settings:
-Question1 => Name A2.YES__SHOW, Refers to A4-A5: When A2 equals "YES", show rows 4-5.
-Question2 => Name A5.NO__HIDE, Refers to B7-B8: When A5 equals "NO", hide rows 7-8.
-Question3 => Name A8.YES__HIDESHEET, Refers to A1 of Sheet2: When A8 equals "YES", hide Sheet2.
-When the user enters the answer value, the macro will automatically show or hide the relevant questions and worksheets based on the condition settings.
+## Example and Demo
+Here is an example to show how to use Excel VBA Macro - Questionnaire Form Builder to create a questionnaire form. You can refer to the file Form.xlsm in the Example folder.
+There are three questions: Question1, Question2 and Question3
+The answer fields are: C2, C4 and C6
+Example Scenario:
+When the answer of Question1 is YES, show Question2
+When the answer of Question2 is NO, hide Question4
+When the answer of Question3 is Complete, hide Sheet2
+
+According to the above scenario, we need to set three naming rules respectively:
+Question1 => Naming rule name C2.YES__SHOW, the reference range is selected as C4: When C2 is equal to "YES", show Question2 (C4).
+Question2 => Naming rule name C4.NO__HIDE, the reference range is selected as C8: When C4 is equal to "NO", hide Question2 (C8).
+Question3 => Naming rule name C6.Complete__HIDESHEET, the reference range is selected as any field of Sheet2: When C6 is equal to "Complete", hide Sheet2.
+When the user enters the answer value, the macro will automatically show or hide the relevant questions and worksheets according to the condition settings.
 
 ## How to run the macro manually:
 1.	Select the worksheet where you want to run the macro.
@@ -81,7 +86,6 @@ When the user enters the answer value, the macro will automatically show or hide
 
 ## Contact Information:
 If you have any questions or need further support and other suggestions in the process of using Excel VBA Macro - Questionnaire Form Builder, or want to write this program with me, please feel free to contact me.
-
 
 # Excel VBA 巨集 - 問答式表單程式
 是一個方便的工具，用於在Excel中建立具有條件要求的問答式表單。該巨集能根據使用者的回答自動顯示或隱藏特定的問題，讓表單填寫更加靈活和便捷。
@@ -150,13 +154,18 @@ Excel VBA巨集 - 問答式表單建立根據條件設定來執行相應的動�
 動作執行：在命名區域的名稱中，指定當條件滿足時要執行的動作。您可以使用動作關鍵字來表示特定的動作。例如，使用「SHOW」表示顯示相關問題，使用「HIDE」表示隱藏相關問題。若要顯示或隱藏工作頁，則使用「SHOWSHEET」或「HIDESHEET」。
 
 ## 示例和示範：
-以下是一個示例，展示如何使用Excel VBA巨集 - 問答式表單建立來建立問答式表單：
-問題：Question1、Question2和Question3
-回答欄位：A2、A5和A8
-假設有以下條件設定：
-Question1 => 命名規則名稱 A2.YES__SHOW，參照範圍選擇 A4-A5：當 A2 等於 "YES" 時，顯示 4-5 列。
-Question2 => 命名規則名稱 A5.NO__HIDE，參照範圍選擇 B7-B8：當 A5 等於 "NO" 時，隱藏 7-8 列。
-Question3 => 命名規則名稱 A8.YES__HIDESHEET，參照範圍選擇 Sheet2 之 A1：當 A8 等於 "YES" 時，隱藏工作表 Sheet2。
+以下是一個示例，展示如何使用 Excel VBA巨集 - 問答式表單建立來建立問答式表單，可參考 Example 資料夾內之 Form.xlsm 檔案：
+共有三個問題：Question1、Question2 和 Question3
+其回答欄位分別為：C2、C4 和 C6
+範例情境：
+當 Question1 的回答為 YES 時，顯示 Question2
+當 Question2 的回答為 NO 時，隱藏 Question4
+當 Question3 的回答為 Complete 時，隱藏工作表 Sheet2
+
+根據上述情境，我們需要分別設定三個命名規則：
+Question1 => 命名規則名稱 C2.YES__SHOW，參照範圍選擇 C4：當 C2 等於 "YES" 時，顯示 Question2 (C4)。
+Question2 => 命名規則名稱 C4.NO__HIDE，參照範圍選擇 C8：當 C4 等於 "NO" 時，隱藏 Question4 (C8)。
+Question3 => 命名規則名稱 C6.Complete__HIDESHEET，參照範圍選擇 Sheet2 之任意欄位：當 C6 等於 "Complete" 時，隱藏工作表 Sheet2。
 當使用者輸入回答值時，巨集將自動根據條件設定來顯示或隱藏相關的問題和工作表。
 
 ## 手動執行巨集的步驟：
