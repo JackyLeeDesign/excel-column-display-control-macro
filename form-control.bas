@@ -52,7 +52,7 @@ End Sub
 ' 檢查當前命名規則，自動控制該條件之欄位顯示或隱藏。
 ' Check the current naming rules and automatically control the display or hide of the fields of the condition.
 Function CheckCurrentCellName(Optional ByVal Target As Range = Nothing)
-    ' On Error GoTo ErrorHandler
+    On Error GoTo ErrorHandler
         Dim targetRange As Range
         Dim targetColumn As String
         Dim targetValue As String
@@ -76,106 +76,90 @@ Function CheckCurrentCellName(Optional ByVal Target As Range = Nothing)
         ' 建立存放待做命名規則之Object Array TodoNames, 其包含兩個屬性: Name, RefersTo
         ' Create an Object TodoNames that stores the naming rules to be done, which contains two properties: Name, RefersTo
         Dim TodoNames() As Object
+        ' 一開始將 TodoNames 設為空陣列
+        ' Set TodoNames to an empty array at the beginning
+        ReDim TodoNames(0 To 0) As Object
         ' 執行 SortNm ws.Names, Target, TodoNames，並回傳至 TodoNames
         ' Execute SortNm ws.Names, Target, TodoNames, and return to TodoNames
         TodoNames = SortNm(ws.Names, Target, TodoNames)
 
-        ' 依序執行命名規則
+        ' 逐一將 TodoNames 內容執行 ShowOrHideRows
         ' Execute naming rules in order
-        For Each doNm In TodoNames
-            ShowOrHideRows doNm.Name, doNm.RefersTo
-        Next doNm
-    Exit Function
-'ErrorHandler:
+        If UBound(TodoNames) > 0 Then
+           For i = 0 To UBound(TodoNames)
+                ' 忽略第0個元素，因為第0個元素為空值
+                ' Ignore the first element, because the first element is empty
+                If i = 0 Then GoTo NextNm
+                ' 執行 ShowOrHideRows
+                ' Execute ShowOrHideRows
+                ShowOrHideRows TodoNames(i)("Name"), TodoNames(i)("RefersTo")
+NextNm:
+            Next i
+        End If
+ErrorHandler:
         ' 顯示錯誤訊息，內容可自行修改與調整
         ' Display error message, the content can be modified and adjusted by yourself
-        'MsgBox "程式在讀取命名規則時發生錯誤，規則名稱: " & nm.Name & ", 錯誤內容:" & Err.Description & ", 請確認該條件規則名稱與參照範圍是否正確，若仍無法排除問題，請聯繫 AI&T 同仁。" & vbCrLf & "An error occurred while the program was reading the naming rules, the rule name: " & nm.Name & ", error content: " & Err.Description & ", please check whether the condition rule name and reference range are correct, if the problem cannot be ruled out, please contact AI&T colleagues."
+        MsgBox "程式在讀取命名規則時發生錯誤，錯誤內容:" & Err.Description & ", 請確認該條件規則名稱與參照範圍是否正確，若仍無法排除問題，請聯繫 AI&T 同仁。" & vbCrLf & "The program encountered an error while reading the naming rules, the error content is:" & Err.Description & ", please check whether the condition rule name and reference range are correct, if the problem cannot be eliminated, please contact AI&T colleagues."
     End Function
 
-' 將 TodoNames 進行排序，回傳物件陣列
-' Sort TodoNames
-Function SortNm(AllNames As Object, Target As Range, InputNames() As Object) As Object
+' 將 TodoNames 進行排序，傳入相關參數，並回傳排序後的 TodoNames
+' Sort TodoNames, pass in related parameters, and return the sorted TodoNames
+Function SortNm(ByVal AllNames As Names, ByVal Target As Range, ByRef InputNames() As Object) As Object()
     ' 設定暫時變數，用於存放從 Names 中取出的命名規則
     ' Set temporary variables to store the naming rules taken from Names
     Dim OutputNames() As Object
+    ' 若InputNames不為空陣列，則將OutputNames設為InputNames
+    If UBound(InputNames) > 0 Then
+        
+    Else
+    ' 若無 InputNames，則將 OutputNames 設為空陣列
+    ' If there is no InputNames, set OutputNames to an empty array
+        ReDim OutputNames(0 To 0) As Object
+        Set OutputNames(0) = CreateObject("Scripting.Dictionary")
+        OutputNames(0).Add "Name", ""
+        OutputNames(0).Add "RefersTo", ""
+    End If
+    
     ' 獲取 Target 範圍之起始列數
     ' Get the start row number of the Target range
     Dim minRow As Integer
     minRow = Target.Row
-
     ' 獲取 Target 範圍之結束列數
     ' Get the end row number of the Target range
     Dim maxRow As Integer
     maxRow = Target.Row + Target.Rows.Count - 1
-
     '宣告 nmRows 陣列，用於存放命名規則判斷時所有行數
     ' Declare the nmRows array to store all row numbers when naming rules are judged
     Dim nmRows() As Integer
-    
-    ' 新增 tempNmObject 物件，用於存放暫時抓取出來的命名規則，並定義其屬性，包含 Name, RefersTo
-    Dim tempNmObject As Object
-    Set tempNmObject = CreateObject("Scripting.Dictionary")
-    tempNmObject.CompareMode = vbTextCompare
-    tempNmObject.Add "Name", ""
-    tempNmObject.Add "RefersTo", ""
 
-    ' 找出符合條件的命名規則，並將其存入 TodoNames
-    ' Find the naming rules that meet the conditions and store them in TodoNames
+    ' 依序讀取 AllNames 內的命名規則，若該規則使用GetNmRows取得的行數有包含在 Target 範圍內，則將該規則加入 OutputNames
+    ' Read the naming rules in AllNames in order, if the row number of the rule obtained by GetNmRows is included in the Target range, then add the rule to OutputNames
     For Each nm In AllNames
-        ' 獲取命名規則判斷時所有行數，並將這些數字存進 nmRows 陣列
-        ' Get all row numbers when naming rules are judged, and store these numbers in the nmRows array
         nmRows = GetNmRows(nm.Name)
-        ' 逐一判斷 nmRows 陣列中的行數是否在 Target 範圍內
-        ' Judge whether the row numbers in the nmRows array are within the Target range one by one
         For Each nmRow In nmRows
-            ' 若 nmRow 在 Target 範圍內，且規則內不含 and, or 則將符合之命名規則名稱與參照範圍存入 TodoNames
-            ' If nmRow is within the Target range, then store the naming rule name and reference range that meet the conditions into TodoNames
-            ' nm.Name轉大寫
-            ' nm.Name to uppercase
-            ' tempNmObject 清空
-            ' tempNmObject clear
-            
-            If nmRow >= minRow And nmRow <= maxRow And InStr(1, UCase(nm.Name), "AND") = 0 And InStr(1, UCase(nm.Name), "OR") = 0 Then
-                '設定 tempNmObject 屬性 為 nm.Name, nm.RefersTo
-                ' Set tempNmObject properties to nm.Name, nm.RefersTo
-                tempNmObject("Name") = nm.Name
-                tempNmObject("RefersTo") = nm.RefersTo
-                
-                ' 將 tempNmObject 存入 InputNames
-                ' Store tempNmObject in InputNames
-                ' 若 InputNames 為空，則直接將 tempNmObject 存入
-                ' If InputNames is empty, then store tempNmObject directly
-                If IsEmpty(InputNames) Then
-                    ReDim InputNames(0)
-                    InputNames(0) = tempNmObject
-                ' 若 InputNames 不為空，則將 tempNmObject 存入 InputNames 陣列最後一個位置
-                ' If InputNames is not empty, then store tempNmObject in the last position of InputNames array
+            If nmRow >= minRow And nmRow <= maxRow Then
+                If InStr(1, nm.Name, "sheet", vbTextCompare) = 0 Then
+                    ReDim Preserve OutputNames(0 To UBound(OutputNames) + 1) As Object
+                    Set OutputNames(UBound(OutputNames)) = CreateObject("Scripting.Dictionary")
+                    OutputNames(UBound(OutputNames)).Add "Name", nm.Name
+                    OutputNames(UBound(OutputNames)).Add "RefersTo", nm.RefersTo
+                    ' 繼續將該符合條件之規則遞迴執行 SortNm
+                    ' Continue to recursively execute SortNm for the rule that meets the condition
+                    'OutputNames = SortNm(AllNames, Range(nm.RefersTo), OutputNames)
                 Else
-                    ReDim Preserve InputNames(UBound(InputNames) + 1)
-                    InputNames(UBound(InputNames)) = tempNmObject
-                End If
-                ' 將InputNames 複製至 OutputNames
-                ' Copy InputNames to OutputNames
-                OutputNames = InputNames
-                ' 若其仍有參照其他命名規則，且也不是控制 sheet 顯示與隱藏之控制項，則將其子層條件存入 TodoNames
-                ' If it still refers to other naming rules, and it is not a control item that controls the display and hide of the sheet, then store its sub-condition into TodoNames
-                If InStr(1, nm.RefersTo, "!") > 0 And InStr(1, UCase(nm.Name), "SHEET") = 0 Then
-                    OutputNames = SortNm(AllNames, Range(Split(nm.RefersTo, "!")(1)), OutputNames)
-                End If
-            ElseIf nmRow >= minRow And nmRow <= maxRow And (InStr(1, UCase(nm.Name), "AND") > 0 Or InStr(1, UCase(nm.Name), "OR") > 0) Then
-                tempNmObject.Name = nm.Name
-                tempNmObject.RefersTo = nm.RefersTo
-                ReDim Preserve InputNames(UBound(InputNames) + 1)
-                InputNames(UBound(InputNames)) = tempNmObject
-                OutputNames = InputNames
-                ' 若其仍有參照其他命名規則，且也不是控制 sheet 顯示與隱藏之控制項，則將其子層條件存入 TodoNames
-                ' If it still refers to other naming rules, and it is not a control item that controls the display and hide of the sheet, then store its sub-condition into TodoNames
-                If InStr(1, nm.RefersTo, "!") > 0 And InStr(1, UCase(nm.Name), "SHEET") = 0 Then
-                    OutputNames = SortNm(AllNames, Range(Split(nm.RefersTo, "!")(1)), OutputNames)
+                    ReDim Preserve OutputNames(0 To UBound(OutputNames) + 1) As Object
+                    Set OutputNames(UBound(OutputNames)) = CreateObject("Scripting.Dictionary")
+                    OutputNames(UBound(OutputNames)).Add "Name", nm.Name
+                    OutputNames(UBound(OutputNames)).Add "RefersTo", nm.RefersTo
+                    ' 繼續將該符合條件之規則遞迴執行 SortNm
+                    ' Continue to recursively execute SortNm for the rule that meets the condition
+                    'OutputNames = SortNm(AllNames, Range(nm.RefersTo), OutputNames)
                 End If
             End If
         Next nmRow
     Next nm
+    ' 回傳 OutputNames
+    ' Return OutputNames
     SortNm = OutputNames
 End Function
 
@@ -190,7 +174,9 @@ Function GetNmRows(Name As String)
     ' Normalize the row numbers in the naming rules (ex: "B2.YES_and_B3.NO_or_B4.YES__SHOW" -> "2,3,4"), and store them in the nmRows array
     Dim regex As Object
     Set regex = CreateObject("VBScript.RegExp")
-    regex.Pattern = "[0-9]+"
+    '條件為：匹配需以1碼字母開頭以及多個數字結尾，但結果僅回傳數字
+    ' The condition is: match the need to start with 1 code letter and end with multiple numbers, but only return numbers
+    regex.Pattern = "[0-9]+\."
     regex.Global = True
     Dim matches As Object
     Set matches = regex.Execute(Name)
@@ -198,7 +184,9 @@ Function GetNmRows(Name As String)
     i = 0
     For Each match In matches
         ReDim Preserve nmRows(i)
-        nmRows(i) = match.Value
+        '將match.Value中的"."去除，並轉為數字存入nmRows
+        ' Remove "." in match.Value and store it in nmRows as a number
+        nmRows(i) = CInt(Replace(match.Value, ".", ""))
         i = i + 1
     Next match
     GetNmRows = nmRows
