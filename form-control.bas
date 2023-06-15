@@ -82,20 +82,16 @@ Function CheckCurrentCellName(Optional ByVal Target As Range = Nothing)
         ' 執行 SortNm ws.Names, Target, TodoNames，並回傳至 TodoNames
         ' Execute SortNm ws.Names, Target, TodoNames, and return to TodoNames
         TodoNames = SortNm(ws.Names, Target, TodoNames)
-
         ' 逐一將 TodoNames 內容執行 ShowOrHideRows
         ' Execute naming rules in order
         If UBound(TodoNames) > 0 Then
            For i = 0 To UBound(TodoNames)
-                ' 忽略第0個元素，因為第0個元素為空值
-                ' Ignore the first element, because the first element is empty
-                If i = 0 Then GoTo NextNm
                 ' 執行 ShowOrHideRows
                 ' Execute ShowOrHideRows
                 ShowOrHideRows TodoNames(i)("Name"), TodoNames(i)("RefersTo")
-NextNm:
             Next i
         End If
+        Exit Function
 ErrorHandler:
         ' 顯示錯誤訊息，內容可自行修改與調整
         ' Display error message, the content can be modified and adjusted by yourself
@@ -110,7 +106,9 @@ Function SortNm(ByVal AllNames As Names, ByVal Target As Range, ByRef InputNames
     Dim OutputNames() As Object
     ' 若InputNames不為空陣列，則將OutputNames設為InputNames
     If UBound(InputNames) > 0 Then
-        
+        ' 將 InputNames 複製至 OutputNames
+        ' Copy InputNames to OutputNames
+        OutputNames = InputNames
     Else
     ' 若無 InputNames，則將 OutputNames 設為空陣列
     ' If there is no InputNames, set OutputNames to an empty array
@@ -128,13 +126,15 @@ Function SortNm(ByVal AllNames As Names, ByVal Target As Range, ByRef InputNames
     ' Get the end row number of the Target range
     Dim maxRow As Integer
     maxRow = Target.Row + Target.Rows.Count - 1
-    '宣告 nmRows 陣列，用於存放命名規則判斷時所有行數
-    ' Declare the nmRows array to store all row numbers when naming rules are judged
-    Dim nmRows() As Integer
-
     ' 依序讀取 AllNames 內的命名規則，若該規則使用GetNmRows取得的行數有包含在 Target 範圍內，則將該規則加入 OutputNames
     ' Read the naming rules in AllNames in order, if the row number of the rule obtained by GetNmRows is included in the Target range, then add the rule to OutputNames
+    Dim nmRows() As Integer
+    Dim tmpNames() As Object
     For Each nm In AllNames
+        '宣告 nmRows 陣列，用於存放命名規則判斷時所有行數
+        ' Declare the nmRows array to store all row numbers when naming rules are judged
+        ' 獲取命名規則中所有行數
+        ' Get all row numbers in the naming rule
         nmRows = GetNmRows(nm.Name)
         For Each nmRow In nmRows
             If nmRow >= minRow And nmRow <= maxRow Then
@@ -145,19 +145,46 @@ Function SortNm(ByVal AllNames As Names, ByVal Target As Range, ByRef InputNames
                     OutputNames(UBound(OutputNames)).Add "RefersTo", nm.RefersTo
                     ' 繼續將該符合條件之規則遞迴執行 SortNm
                     ' Continue to recursively execute SortNm for the rule that meets the condition
-                    'OutputNames = SortNm(AllNames, Range(nm.RefersTo), OutputNames)
-                Else
+                    ' 為避免堆疊空間不足，將 SortNm 回傳之陣列逐一加入 OutputNames
+                    ' To avoid insufficient stack space, add the array returned by SortNm to OutputNames one by one
+                    tmpNames = SortNm(AllNames, Range(nm.RefersTo), OutputNames)
+                    For Each tmpName In tmpNames
+                        ReDim Preserve OutputNames(0 To UBound(OutputNames) + 1) As Object
+                        Set OutputNames(UBound(OutputNames)) = CreateObject("Scripting.Dictionary")
+                        OutputNames(UBound(OutputNames)).Add "Name", tmpName("Name")
+                        OutputNames(UBound(OutputNames)).Add "RefersTo", tmpName("RefersTo")
+                    Next tmpName
+                End If
+                IF InStr(1, nm.Name, "sheet", vbTextCompare) > 0 Then
                     ReDim Preserve OutputNames(0 To UBound(OutputNames) + 1) As Object
                     Set OutputNames(UBound(OutputNames)) = CreateObject("Scripting.Dictionary")
                     OutputNames(UBound(OutputNames)).Add "Name", nm.Name
                     OutputNames(UBound(OutputNames)).Add "RefersTo", nm.RefersTo
-                    ' 繼續將該符合條件之規則遞迴執行 SortNm
-                    ' Continue to recursively execute SortNm for the rule that meets the condition
-                    'OutputNames = SortNm(AllNames, Range(nm.RefersTo), OutputNames)
                 End If
             End If
         Next nmRow
     Next nm
+    ' 將 OutputNames 內 Name 為空值的元素刪除
+    ' Delete the elements in OutputNames whose Name is empty
+    Dim i As Integer
+    For i = UBound(OutputNames) To 0 Step -1
+        If OutputNames(i)("Name") = "" Then
+            OutputNames = RemoveElement(OutputNames, i)
+        End If
+    Next i
+
+    ' 將 OutputNames 去除重複，若重複，從最後新增的元素將其刪除
+    ' Remove duplicates from OutputNames, if duplicates, delete them from the last added element
+    Dim j As Integer
+    For i = UBound(OutputNames) To 0 Step -1
+        For j = i - 1 To 0 Step -1
+            If OutputNames(i)("Name") = OutputNames(j)("Name") Then
+                OutputNames = RemoveElement(OutputNames, i)
+                Exit For
+            End If
+        Next j
+    Next i
+
     ' 回傳 OutputNames
     ' Return OutputNames
     SortNm = OutputNames
@@ -165,7 +192,7 @@ End Function
 
 '根據 nmName 取得命名規則判斷時所有行數
 ' Get all row numbers when naming rules are judged according to nmName
-Function GetNmRows(Name As String)
+Function GetNmRows(Name As String) As Integer()
     'ex: "B2.YES_and_B3.NO_or_B4.YES__SHOW"
     ' 宣告 nmRows 陣列，用於存放命名規則判斷時所有行數
     ' Declare the nmRows array to store all row numbers when naming rules are judged
@@ -190,6 +217,25 @@ Function GetNmRows(Name As String)
         i = i + 1
     Next match
     GetNmRows = nmRows
+End Function
+
+Function RemoveElement(InputArray() As Object, Index As Integer) As Object()
+    ' 宣告 OutputArray 陣列，用於存放刪除元素後之陣列
+    ' Declare the OutputArray array to store the array after deleting the element
+    Dim OutputArray() As Object
+    ' 將 InputArray 複製至 OutputArray
+    ' Copy InputArray to OutputArray
+    OutputArray = InputArray
+    ' 將 OutputArray 中 Index 位置之元素刪除
+    ' Delete the element at the Index position in OutputArray
+    Dim i As Integer
+    For i = Index To UBound(OutputArray) - 1
+        Set OutputArray(i) = OutputArray(i + 1)
+    Next i
+    ReDim Preserve OutputArray(0 To UBound(OutputArray) - 1) As Object
+    ' 回傳 OutputArray
+    ' Return OutputArray
+    RemoveElement = OutputArray
 End Function
 
 ' 依照命名規則，顯示或隱藏欄位
