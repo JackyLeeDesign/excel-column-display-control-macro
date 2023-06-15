@@ -81,11 +81,14 @@ Function CheckCurrentCellName(Optional ByVal Target As Range = Nothing)
         ReDim TodoNames(0 To 0) As Object
         ' 執行 SortNm ws.Names, Target, TodoNames，並回傳至 TodoNames
         ' Execute SortNm ws.Names, Target, TodoNames, and return to TodoNames
+        ' 顯示ws.Names數量
+        ' Display the number of ws.Names
+        MsgBox ws.Names.Count
         TodoNames = SortNm(ws.Names, Target, TodoNames)
         ' 逐一將 TodoNames 內容執行 ShowOrHideRows
         ' Execute naming rules in order
         If UBound(TodoNames) > 0 Then
-           For i = 0 To UBound(TodoNames)
+           For i = 1 To UBound(TodoNames)
                 ' 執行 ShowOrHideRows
                 ' Execute ShowOrHideRows
                 ShowOrHideRows TodoNames(i)("Name"), TodoNames(i)("RefersTo")
@@ -101,9 +104,14 @@ ErrorHandler:
 ' 將 TodoNames 進行排序，傳入相關參數，並回傳排序後的 TodoNames
 ' Sort TodoNames, pass in related parameters, and return the sorted TodoNames
 Function SortNm(ByVal AllNames As Names, ByVal Target As Range, ByRef InputNames() As Object) As Object()
+    Dim OutputNames() As Object
+    Dim minRow As Integer
+    Dim maxRow As Integer
+    Dim nmRows() As Integer
+    Dim tmpNames() As Object
+    Dim tmpNamesLength As Integer
     ' 設定暫時變數，用於存放從 Names 中取出的命名規則
     ' Set temporary variables to store the naming rules taken from Names
-    Dim OutputNames() As Object
     ' 若InputNames不為空陣列，則將OutputNames設為InputNames
     If UBound(InputNames) > 0 Then
         ' 將 InputNames 複製至 OutputNames
@@ -120,16 +128,15 @@ Function SortNm(ByVal AllNames As Names, ByVal Target As Range, ByRef InputNames
     
     ' 獲取 Target 範圍之起始列數
     ' Get the start row number of the Target range
-    Dim minRow As Integer
+    
     minRow = Target.Row
     ' 獲取 Target 範圍之結束列數
     ' Get the end row number of the Target range
-    Dim maxRow As Integer
+    
     maxRow = Target.Row + Target.Rows.Count - 1
     ' 依序讀取 AllNames 內的命名規則，若該規則使用GetNmRows取得的行數有包含在 Target 範圍內，則將該規則加入 OutputNames
     ' Read the naming rules in AllNames in order, if the row number of the rule obtained by GetNmRows is included in the Target range, then add the rule to OutputNames
-    Dim nmRows() As Integer
-    Dim tmpNames() As Object
+
     For Each nm In AllNames
         '宣告 nmRows 陣列，用於存放命名規則判斷時所有行數
         ' Declare the nmRows array to store all row numbers when naming rules are judged
@@ -139,21 +146,22 @@ Function SortNm(ByVal AllNames As Names, ByVal Target As Range, ByRef InputNames
         For Each nmRow In nmRows
             If nmRow >= minRow And nmRow <= maxRow Then
                 If InStr(1, nm.Name, "sheet", vbTextCompare) = 0 Then
+                    MsgBox(nm.Name)
                     ReDim Preserve OutputNames(0 To UBound(OutputNames) + 1) As Object
                     Set OutputNames(UBound(OutputNames)) = CreateObject("Scripting.Dictionary")
                     OutputNames(UBound(OutputNames)).Add "Name", nm.Name
                     OutputNames(UBound(OutputNames)).Add "RefersTo", nm.RefersTo
                     ' 繼續將該符合條件之規則遞迴執行 SortNm
                     ' Continue to recursively execute SortNm for the rule that meets the condition
-                    ' 為避免堆疊空間不足，將 SortNm 回傳之陣列逐一加入 OutputNames
+                    ' 為避免堆疊空間不足，先算好 SortNm 回傳之陣列長度，再將 SortNm 回傳之陣列加入 OutputNames
                     ' To avoid insufficient stack space, add the array returned by SortNm to OutputNames one by one
                     tmpNames = SortNm(AllNames, Range(nm.RefersTo), OutputNames)
-                    For Each tmpName In tmpNames
-                        ReDim Preserve OutputNames(0 To UBound(OutputNames) + 1) As Object
-                        Set OutputNames(UBound(OutputNames)) = CreateObject("Scripting.Dictionary")
-                        OutputNames(UBound(OutputNames)).Add "Name", tmpName("Name")
-                        OutputNames(UBound(OutputNames)).Add "RefersTo", tmpName("RefersTo")
-                    Next tmpName
+                    tmpNamesLength = UBound(tmpNames)
+                    ReDim Preserve OutputNames(0 To UBound(OutputNames) + tmpNamesLength) As Object
+                    Dim nmIndex As Integer
+                    For nmIndex = 0 To tmpNamesLength
+                        Set OutputNames(UBound(OutputNames) - tmpNamesLength + count) = tmpNames(nmIndex)
+                    Next nmIndex
                 End If
                 IF InStr(1, nm.Name, "sheet", vbTextCompare) > 0 Then
                     ReDim Preserve OutputNames(0 To UBound(OutputNames) + 1) As Object
@@ -167,7 +175,7 @@ Function SortNm(ByVal AllNames As Names, ByVal Target As Range, ByRef InputNames
     ' 將 OutputNames 內 Name 為空值的元素刪除
     ' Delete the elements in OutputNames whose Name is empty
     Dim i As Integer
-    For i = UBound(OutputNames) To 0 Step -1
+    For i = UBound(OutputNames) To 1 Step -1
         If OutputNames(i)("Name") = "" Then
             OutputNames = RemoveElement(OutputNames, i)
         End If
@@ -437,9 +445,9 @@ Function CheckFieldValue(columnInfo As Variant) As String
     ' Lowercase to uppercase
     targetValue = UCase(targetValue)
 
-    ' 檢查目標欄位的值是否等於條件欄位的值，或目標欄位包含條件欄位的值
+    ' 檢查目標欄位的值是否等於條件欄位的值，或目標欄位包含條件欄位的值，且該欄位並非隱藏狀態
     ' Check if the value of the target field is equal to the value of the condition field, or if the target field contains the value of the condition field
-    If targetValue = fieldValue Or InStr(1, targetValue, fieldValue, vbTextCompare) > 0 Then
+    If (targetValue = fieldValue Or InStr(1, targetValue, fieldValue, vbTextCompare) > 0) And Range(columnName).EntireColumn.Hidden = False Then
         CheckFieldValue = "True"
     Else
         CheckFieldValue = "False"
