@@ -20,26 +20,6 @@ End Sub
 
 ' 當工作表內容有變更時，自動執行 CheckCurrentCellName
 Private Sub Worksheet_Change(ByVal Target As Range)
-    ' 若僅是刪除或新增欄位，則不執行 CheckCurrentCellName
-    ' If it is only to delete or add fields, CheckCurrentCellName will not be executed
-    'If Target.Columns.Count = 0 And Target.Rows.Count = 0 Then
-    '    Exit Sub
-    'End If
-    ' 判斷 Target 是否有多欄位變更，若有，則跳出提醒視窗，顯示: "目前版本不支援多欄位變更，請重新確認。"
-    ' Determine whether Target has multiple field changes. If so, a reminder window will pop up to show: "The current version does not support multiple field changes, please check again."
-    'If Target.Columns.Count > 1 Then
-    '    MsgBox "目前版本不支援多欄位變更，請重新確認。" & vbCrLf & "The current version does not support multiple field changes, please check again."
-    '    Exit Sub
-    'End If
-    ' 判斷 Target 是否有多列變更，若有，則跳出提醒視窗，顯示: "目前版本不支援多列變更，請重新確認。"
-    ' Determine whether Target has multiple row changes. If so, a reminder window will pop up to show: "The current version does not support multiple row changes, please check again."
-    'If Target.Rows.Count > 1 Then
-    '    MsgBox "目前版本不支援多列變更，請重新確認。" & vbCrLf & "The current version does not support multiple row changes, please check again."
-    '    Exit Sub
-    'End If
-    
-    ' 若僅有單一欄位變更，則執行 CheckCellName
-    ' If there is only one field change, execute CheckCellName
     If Target.Columns.Count = 1 And Target.Rows.Count = 1 Then
         UrModuleName.CheckCurrentCellName Target
     End If
@@ -49,153 +29,101 @@ End Sub
 ' 將底下程式碼放在需要執行的工作表內，或將其放入模組，這樣可以共用，不用每個工作表都放一次。
 ' Put the following code in the worksheet that needs to execute the macro, or put it in the module, so that it can be shared without putting it in each worksheet.
 ' ====================================================================================================
-' 檢查當前命名規則，自動控制該條件之欄位顯示或隱藏。
-' Check the current naming rules and automatically control the display or hide of the fields of the condition.
+' 主要邏輯:檢查當前命名規則，自動控制該條件之欄位顯示或隱藏。
+' Main logic: Check the current naming rules and automatically control the display or hide of the fields of the condition.
 Function CheckCurrentCellName(Optional ByVal Target As Range = Nothing)
     On Error GoTo ErrorHandler
-        Dim targetRange As Range
-        Dim targetColumn As String
-        Dim targetValue As String
-        Dim targetRangeStr As String
-        Dim cell As Range
-        Dim conditions() As String
-        Dim condition As Variant
-        Dim rangeStr As String
-        
-        Dim wb As Workbook
-        Dim ws As Worksheet
-        Dim nm As Name
-        Dim i As Integer
+    ' 宣告變數
+    ' Declare variables
+    Dim wb As Workbook
+    Dim ws As Worksheet
+    Dim nm As Name
+    Dim TodoNames As New Collection
+    Dim nmObj As Object
+    Set wb = ActiveWorkbook
+    Set ws = wb.ActiveSheet
 
-        ' 獲取當前工作簿
-        ' Get the current workbook
-        Set wb = ActiveWorkbook
-        ' 獲取當前工作表
-        ' Get the current worksheet
-        Set ws = wb.ActiveSheet
-        ' 建立存放待做命名規則之Object Array TodoNames, 其包含兩個屬性: Name, RefersTo
-        ' Create an Object TodoNames that stores the naming rules to be done, which contains two properties: Name, RefersTo
-        Dim TodoNames() As Object
-        ' 一開始將 TodoNames 設為空陣列
-        ' Set TodoNames to an empty array at the beginning
-        ReDim TodoNames(0 To 0) As Object
-        ' 執行 SortNm ws.Names, Target, TodoNames，並回傳至 TodoNames
-        ' Execute SortNm ws.Names, Target, TodoNames, and return to TodoNames
-        ' 顯示ws.Names數量
-        ' Display the number of ws.Names
-        MsgBox ws.Names.Count
-        TodoNames = SortNm(ws.Names, Target, TodoNames)
-        ' 逐一將 TodoNames 內容執行 ShowOrHideRows
-        ' Execute naming rules in order
-        If UBound(TodoNames) > 0 Then
-           For i = 1 To UBound(TodoNames)
-                ' 執行 ShowOrHideRows
-                ' Execute ShowOrHideRows
-                ShowOrHideRows TodoNames(i)("Name"), TodoNames(i)("RefersTo")
-            Next i
-        End If
-        Exit Function
+    ' 整理命名規則，並回傳待處理之命名規則(問題條件)
+    ' Organize the naming rules and return the naming rules to be processed (problem conditions)
+    Set TodoNames = SortNm(ws.Names, Target)
+
+    ' 依序將問題欄位顯示或隱藏
+    ' Show or hide the problem fields in order
+    For Each nmObj In TodoNames
+        ShowOrHideRows nmObj("Name"), nmObj("RefersTo")
+    Next nmObj
+    Exit Function
 ErrorHandler:
-        ' 顯示錯誤訊息，內容可自行修改與調整
-        ' Display error message, the content can be modified and adjusted by yourself
-        MsgBox "程式在讀取命名規則時發生錯誤，錯誤內容:" & Err.Description & ", 請確認該條件規則名稱與參照範圍是否正確，若仍無法排除問題，請聯繫 AI&T 同仁。" & vbCrLf & "The program encountered an error while reading the naming rules, the error content is:" & Err.Description & ", please check whether the condition rule name and reference range are correct, if the problem cannot be eliminated, please contact AI&T colleagues."
-    End Function
+    ' 顯示錯誤訊息，內容可自行修改與調整
+    ' Display error message, the content can be modified and adjusted by yourself
+    MsgBox "程式在讀取命名規則時發生錯誤，錯誤內容:" & Err.Description & ", 請確認該條件規則名稱與參照範圍是否正確，若仍無法排除問題，請聯繫 AI&T 同仁。" & vbCrLf & "The program encountered an error while reading the naming rules, the error content is:" & Err.Description & ", please check whether the condition rule name and reference range are correct, if the problem cannot be eliminated, please contact AI&T colleagues."
+End Function
 
-' 將 TodoNames 進行排序，傳入相關參數，並回傳排序後的 TodoNames
-' Sort TodoNames, pass in related parameters, and return the sorted TodoNames
-Function SortNm(ByVal AllNames As Names, ByVal Target As Range, ByRef InputNames() As Object) As Object()
-    Dim OutputNames() As Object
+' 主要邏輯:整理命名規則，並回傳待處理之命名規則(問題條件)
+' Main logic: Organize the naming rules and return the naming rules to be processed (problem conditions)
+Function SortNm(ByVal AllNames As Names, ByVal Target As Range) As Collection
+    ' 宣告變數
+    ' Declare variables
+    Dim OutputNames As New Collection
     Dim minRow As Integer
     Dim maxRow As Integer
+    Dim selfMinRow As Integer
+    Dim selfMaxRow As Integer
     Dim nmRows() As Integer
-    Dim tmpNames() As Object
-    Dim tmpNamesLength As Integer
-    ' 設定暫時變數，用於存放從 Names 中取出的命名規則
-    ' Set temporary variables to store the naming rules taken from Names
-    ' 若InputNames不為空陣列，則將OutputNames設為InputNames
-    If UBound(InputNames) > 0 Then
-        ' 將 InputNames 複製至 OutputNames
-        ' Copy InputNames to OutputNames
-        OutputNames = InputNames
-    Else
-    ' 若無 InputNames，則將 OutputNames 設為空陣列
-    ' If there is no InputNames, set OutputNames to an empty array
-        ReDim OutputNames(0 To 0) As Object
-        Set OutputNames(0) = CreateObject("Scripting.Dictionary")
-        OutputNames(0).Add "Name", ""
-        OutputNames(0).Add "RefersTo", ""
-    End If
-    
-    ' 獲取 Target 範圍之起始列數
-    ' Get the start row number of the Target range
-    
+    Dim nmRow As Variant
+
+    ' 取得該問題要顯示或隱藏的欄位範圍
+    ' Get the field range to be displayed or hidden
     minRow = Target.Row
-    ' 獲取 Target 範圍之結束列數
-    ' Get the end row number of the Target range
-    
     maxRow = Target.Row + Target.Rows.Count - 1
-    ' 依序讀取 AllNames 內的命名規則，若該規則使用GetNmRows取得的行數有包含在 Target 範圍內，則將該規則加入 OutputNames
-    ' Read the naming rules in AllNames in order, if the row number of the rule obtained by GetNmRows is included in the Target range, then add the rule to OutputNames
+
+    ' 紀錄過程中有問題之命名規則名稱，並跳過該規則
+    ' Record the naming rule name with problems in the process and skip the rule
+    Dim errorNames As New Collection
 
     For Each nm In AllNames
-        '宣告 nmRows 陣列，用於存放命名規則判斷時所有行數
-        ' Declare the nmRows array to store all row numbers when naming rules are judged
-        ' 獲取命名規則中所有行數
-        ' Get all row numbers in the naming rule
+        ' 若命名規則名稱包含在 errorNames Collection 中，則跳過該規則，
+        ' If the naming rule name is included in errorNames, skip the rule
+        If IsStringInCollection(nm.Name, errorNames) Then
+            GoTo NextName
+        End If
+
         nmRows = GetNmRows(nm.Name)
+        ' 檢查該問題要顯示或隱藏的欄位範圍是否包含問題本身，若包含，表示該問題之邏輯設定錯誤，顯示提醒後並跳過該規則
+        selfMinRow = Range(nm.RefersTo).Row
+        selfMaxRow = Range(nm.RefersTo).Row + Range(nm.RefersTo).Rows.Count - 1
+        For i = selfMinRow To selfMaxRow
+            If IsInArray(i, nmRows) Then
+                MsgBox (nm.Name & " 該命名規則名稱出現在參照範圍裏面，可能導致無窮迴圈，已自動忽略該規則。")
+                ' 將該規則名稱加入 errorNames
+                errorNames.Add nm.Name
+                GoTo NextName
+            End If
+        Next i
+        ' 從當前編輯之題目開始，往下找出待執行之子問題，根據其先後順序加入待做合集 OutputNames (TodoNames)
+        ' Starting from the current edited question, find out the sub-problems to be executed below, and add them to the collection OutputNames (TodoNames) to be done according to their order
         For Each nmRow In nmRows
             If nmRow >= minRow And nmRow <= maxRow Then
                 If InStr(1, nm.Name, "sheet", vbTextCompare) = 0 Then
-                    MsgBox(nm.Name)
-                    ReDim Preserve OutputNames(0 To UBound(OutputNames) + 1) As Object
-                    Set OutputNames(UBound(OutputNames)) = CreateObject("Scripting.Dictionary")
-                    OutputNames(UBound(OutputNames)).Add "Name", nm.Name
-                    OutputNames(UBound(OutputNames)).Add "RefersTo", nm.RefersTo
-                    ' 繼續將該符合條件之規則遞迴執行 SortNm
-                    ' Continue to recursively execute SortNm for the rule that meets the condition
-                    ' 為避免堆疊空間不足，先算好 SortNm 回傳之陣列長度，再將 SortNm 回傳之陣列加入 OutputNames
-                    ' To avoid insufficient stack space, add the array returned by SortNm to OutputNames one by one
-                    tmpNames = SortNm(AllNames, Range(nm.RefersTo), OutputNames)
-                    tmpNamesLength = UBound(tmpNames)
-                    ReDim Preserve OutputNames(0 To UBound(OutputNames) + tmpNamesLength) As Object
-                    Dim nmIndex As Integer
-                    For nmIndex = 0 To tmpNamesLength
-                        Set OutputNames(UBound(OutputNames) - tmpNamesLength + count) = tmpNames(nmIndex)
+                    OutputNames.Add CreateDictionary(nm.Name, nm.refersTo)
+                    ' 判斷該條件是否含有其他子問題，若有，則將子問題加入 OutputNames
+                    ' Add sub-problems to OutputNames
+                    Dim nmIndex As Variant
+                    For Each nmIndex In SortNm(AllNames, Range(nm.refersTo))
+                        OutputNames.Add nmIndex
                     Next nmIndex
-                End If
-                IF InStr(1, nm.Name, "sheet", vbTextCompare) > 0 Then
-                    ReDim Preserve OutputNames(0 To UBound(OutputNames) + 1) As Object
-                    Set OutputNames(UBound(OutputNames)) = CreateObject("Scripting.Dictionary")
-                    OutputNames(UBound(OutputNames)).Add "Name", nm.Name
-                    OutputNames(UBound(OutputNames)).Add "RefersTo", nm.RefersTo
+                ElseIf InStr(1, nm.Name, "sheet", vbTextCompare) > 0 Then
+                    OutputNames.Add CreateDictionary(nm.Name, nm.refersTo)
                 End If
             End If
         Next nmRow
+NextName:
     Next nm
-    ' 將 OutputNames 內 Name 為空值的元素刪除
-    ' Delete the elements in OutputNames whose Name is empty
-    Dim i As Integer
-    For i = UBound(OutputNames) To 1 Step -1
-        If OutputNames(i)("Name") = "" Then
-            OutputNames = RemoveElement(OutputNames, i)
-        End If
-    Next i
 
-    ' 將 OutputNames 去除重複，若重複，從最後新增的元素將其刪除
-    ' Remove duplicates from OutputNames, if duplicates, delete them from the last added element
-    Dim j As Integer
-    For i = UBound(OutputNames) To 0 Step -1
-        For j = i - 1 To 0 Step -1
-            If OutputNames(i)("Name") = OutputNames(j)("Name") Then
-                OutputNames = RemoveElement(OutputNames, i)
-                Exit For
-            End If
-        Next j
-    Next i
-
-    ' 回傳 OutputNames
-    ' Return OutputNames
-    SortNm = OutputNames
+    ' 去除集合OutputNames內重複之命名規則，若有重複，從最後添加之合集中移除
+    ' Remove duplicate naming rules, if there are duplicates, remove them from the last added collection
+    ' return the collection
+    Set SortNm = RemoveDuplicate(OutputNames)
 End Function
 
 '根據 nmName 取得命名規則判斷時所有行數
@@ -225,25 +153,6 @@ Function GetNmRows(Name As String) As Integer()
         i = i + 1
     Next match
     GetNmRows = nmRows
-End Function
-
-Function RemoveElement(InputArray() As Object, Index As Integer) As Object()
-    ' 宣告 OutputArray 陣列，用於存放刪除元素後之陣列
-    ' Declare the OutputArray array to store the array after deleting the element
-    Dim OutputArray() As Object
-    ' 將 InputArray 複製至 OutputArray
-    ' Copy InputArray to OutputArray
-    OutputArray = InputArray
-    ' 將 OutputArray 中 Index 位置之元素刪除
-    ' Delete the element at the Index position in OutputArray
-    Dim i As Integer
-    For i = Index To UBound(OutputArray) - 1
-        Set OutputArray(i) = OutputArray(i + 1)
-    Next i
-    ReDim Preserve OutputArray(0 To UBound(OutputArray) - 1) As Object
-    ' 回傳 OutputArray
-    ' Return OutputArray
-    RemoveElement = OutputArray
 End Function
 
 ' 依照命名規則，顯示或隱藏欄位
@@ -361,6 +270,9 @@ Function ShowOrHideRows(fieldName As String, relatedRange As String)
         End If
     End If
 End Function
+
+' 檢查條件是否符合
+' Check if the condition meets
 Function CheckCondition(condition As String) As Boolean
     ' 宣告 ResultCondition 為字串
     ' Declare ResultCondition as a string
@@ -410,6 +322,9 @@ Function CheckCondition(condition As String) As Boolean
     End If
     CheckCondition = ResultBool
 End Function
+
+' 檢查欄位值是否符合條件
+' Check if the field value meets the conditions
 Function CheckFieldValue(columnInfo As Variant) As String
     ' B2.YES
     ' 將字串以 "." 分割成陣列
@@ -452,6 +367,76 @@ Function CheckFieldValue(columnInfo As Variant) As String
     Else
         CheckFieldValue = "False"
     End If
+End Function
+
+' 移除重複之命名規則
+' Remove duplicate naming rules
+Function RemoveDuplicate(ByVal coll As Collection) As Collection
+    Dim dict As Object
+    Dim item As Variant
+    Dim key As Variant
+    
+    Set dict = CreateObject("Scripting.Dictionary")
+    For Each item In coll
+        dict(item("Name")) = True
+    Next item
+    
+    Set RemoveDuplicate = New Collection
+    For Each item In coll
+        If dict(item("Name")) Then
+            RemoveDuplicate.Add item
+            dict(item("Name")) = False ' 將該名稱的索引標記為已添加
+        End If
+    Next item
+End Function
+
+' 檢查陣列內之數字是否存在於另一個陣列中
+' Check if the number in the array exists in another array
+Function IsInArray(valToBeFound As Variant, arr() As Integer) As Boolean
+    Dim i As Long
+    For i = LBound(arr) To UBound(arr)
+        If arr(i) = valToBeFound Then
+            IsInArray = True
+            Exit Function
+        End If
+    Next i
+    IsInArray = False
+End Function
+
+' 檢查一個字串是否存在於 Collection 中
+' Check if a string exists in the Collection
+Function IsStringInCollection(searchString As String, coll As Collection) As Boolean
+    Dim item As Variant
+    
+    For Each item In coll
+        If item = searchString Then
+            IsStringInCollection = True
+            Exit Function
+        End If
+    Next item
+    
+    IsStringInCollection = False
+End Function
+
+' Create a dictionary with "Name" and "RefersTo"
+Function CreateDictionary(name As String, refersTo As String) As Object
+    Dim dict As Object
+    Set dict = CreateObject("Scripting.Dictionary")
+    dict.Add "Name", name
+    dict.Add "RefersTo", refersTo
+    Set CreateDictionary = dict
+End Function
+
+
+
+' ====================================================================================================
+' 僅維護時會使用之 Function，不需要加入到每個工作表，當需要執行時貼至巨集後再手動執行
+' Function used only when maintaining, do not need to add to each worksheet, when you need to execute, paste to the macro and then execute manually
+' ====================================================================================================
+' 將 Excel 中之回答全部清除後，執行該程式，會將所有問題根據設定的條件重新顯示
+' After clearing all the answers in Excel, execute the program, and all questions will be displayed again according to the set conditions
+Public Function ResetAllQuestions()
+    CheckAllCellNames
 End Function
 
 ' 檢查所有命名規則
@@ -516,14 +501,4 @@ Function CheckAllCellNames(Optional ByVal Target As Range = Nothing)
         ' 顯示錯誤訊息，內容可自行修改與調整
         ' Display error message, the content can be modified and adjusted by yourself
         MsgBox "程式在讀取命名規則時發生錯誤，規則名稱: " & nm.Name & ", 錯誤內容:" & Err.Description & ", 請確認該條件規則名稱與參照範圍是否正確，若仍無法排除問題，請聯繫 AI&T 同仁。" & vbCrLf & "An error occurred while the program was reading the naming rules, the rule name: " & nm.Name & ", error content: " & Err.Description & ", please check whether the condition rule name and reference range are correct, if the problem cannot be ruled out, please contact AI&T colleagues."
-End Function
-
-' ====================================================================================================
-' 僅維護時會使用之 Function，不需要加入到每個工作表，當需要執行時貼至巨集後再手動執行
-' Function used only when maintaining, do not need to add to each worksheet, when you need to execute, paste to the macro and then execute manually
-' ====================================================================================================
-' 將 Excel 中之回答全部清除後，執行該程式，會將所有問題根據設定的條件重新顯示
-' After clearing all the answers in Excel, execute the program, and all questions will be displayed again according to the set conditions
-Public Function ResetAllQuestions()
-    CheckAllCellNames
 End Function
