@@ -362,7 +362,7 @@ Function CheckFieldValue(columnInfo As Variant) As String
 
     ' 檢查目標欄位的值是否等於條件欄位的值，或目標欄位包含條件欄位的值，且該欄位並非隱藏狀態
     ' Check if the value of the target field is equal to the value of the condition field, or if the target field contains the value of the condition field
-    If (targetValue = fieldValue Or InStr(1, targetValue, fieldValue, vbTextCompare) > 0) And Range(columnName).EntireColumn.Hidden = False Then
+    If (targetValue = fieldValue Or InStr(1, targetValue, fieldValue, vbTextCompare) > 0) And Range(columnName).EntireRow.Hidden = False Then
         CheckFieldValue = "True"
     Else
         CheckFieldValue = "False"
