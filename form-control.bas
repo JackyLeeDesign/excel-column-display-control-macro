@@ -129,29 +129,33 @@ End Function
 '根據 nmName 取得命名規則判斷時所有行數
 ' Get all row numbers when naming rules are judged according to nmName
 Function GetNmRows(Name As String) As Integer()
-    'ex: "B2.YES_and_B3.NO_or_B4.YES__SHOW"
-    ' 宣告 nmRows 陣列，用於存放命名規則判斷時所有行數
-    ' Declare the nmRows array to store all row numbers when naming rules are judged
-    Dim nmRows() As Integer
-    ' 使使用Regex取出命名規則中的行數 (ex: "B2.YES_and_B3.NO_or_B4.YES__SHOW" -> "2,3,4")，並存入 nmRows 陣列
-    ' Normalize the row numbers in the naming rules (ex: "B2.YES_and_B3.NO_or_B4.YES__SHOW" -> "2,3,4"), and store them in the nmRows array
+    ' 宣告 nmRowsTmp 陣列，用於暫存命名規則判斷時的所有行數
+    Dim nmRowsTmp() As Integer
+    ' 使使用 Regex 取出命名規則中的行數 (ex: "D21.v_or_D32.v_or_D35.v_orD38.v_or_D56.v__show" -> "21,32,35,38,56")，並存入 nmRowsTmp 陣列
+    ' Normalize the row numbers in the naming rules (ex: "D21.v_or_D32.v_or_D35.v_orD38.v_or_D56.v__show" -> "21,32,35,38,56"), and store them in the nmRowsTmp array
     Dim regex As Object
     Set regex = CreateObject("VBScript.RegExp")
-    '條件為：匹配需以1碼字母開頭以及多個數字結尾，但結果僅回傳數字
+    ' 條件為：匹配需以1碼字母開頭以及多個數字結尾，但結果僅回傳數字
     ' The condition is: match the need to start with 1 code letter and end with multiple numbers, but only return numbers
-    regex.Pattern = "[0-9]+\."
+    regex.Pattern = "[0-9]+"
     regex.Global = True
     Dim matches As Object
     Set matches = regex.Execute(Name)
+    
+    ReDim nmRowsTmp(0 To matches.Count - 1) ' 設定臨時陣列的大小
+    
     Dim i As Integer
-    i = 0
-    For Each match In matches
-        ReDim Preserve nmRows(i)
-        '將match.Value中的"."去除，並轉為數字存入nmRows
-        ' Remove "." in match.Value and store it in nmRows as a number
-        nmRows(i) = CInt(Replace(match.Value, ".", ""))
-        i = i + 1
-    Next match
+    For i = 0 To matches.Count - 1
+        nmRowsTmp(i) = CInt(matches(i))
+    Next i
+    
+    ' 將臨時陣列複製到最終的 nmRows 陣列
+    Dim nmRows() As Integer
+    ReDim nmRows(0 To UBound(nmRowsTmp))
+    For i = 0 To UBound(nmRowsTmp)
+        nmRows(i) = nmRowsTmp(i)
+    Next i
+    
     GetNmRows = nmRows
 End Function
 
