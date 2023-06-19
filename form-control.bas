@@ -37,7 +37,7 @@ Function CheckCurrentCellName(Optional ByVal Target As Range = Nothing)
     ' Declare variables
     Dim wb As Workbook
     Dim ws As Worksheet
-    Dim nm As Name
+    Dim nm As name
     Dim TodoNames As New Collection
     Dim nmObj As Object
     Set wb = ActiveWorkbook
@@ -84,19 +84,19 @@ Function SortNm(ByVal AllNames As Names, ByVal Target As Range) As Collection
     For Each nm In AllNames
         ' 若命名規則名稱包含在 errorNames Collection 中，則跳過該規則，
         ' If the naming rule name is included in errorNames, skip the rule
-        If IsStringInCollection(nm.Name, errorNames) Then
+        If IsStringInCollection(nm.name, errorNames) Then
             GoTo NextName
         End If
 
-        nmRows = GetNmRows(nm.Name)
+        nmRows = GetNmRows(nm.name)
         ' 檢查該問題要顯示或隱藏的欄位範圍是否包含問題本身，若包含，表示該問題之邏輯設定錯誤，顯示提醒後並跳過該規則
-        selfMinRow = Range(nm.RefersTo).Row
-        selfMaxRow = Range(nm.RefersTo).Row + Range(nm.RefersTo).Rows.Count - 1
+        selfMinRow = Range(nm.refersTo).Row
+        selfMaxRow = Range(nm.refersTo).Row + Range(nm.refersTo).Rows.Count - 1
         For i = selfMinRow To selfMaxRow
-            If IsInArray(i, nmRows) Then
-                MsgBox (nm.Name & " 該命名規則名稱出現在參照範圍裏面，可能導致無窮迴圈，已自動忽略該規則。")
+            If InStr(1, nm.name, "sheet", vbTextCompare) = 0 And IsInArray(i, nmRows) Then
+                MsgBox (nm.name & " 該命名規則名稱出現在參照範圍裏面，可能導致無窮迴圈，已自動忽略該規則。")
                 ' 將該規則名稱加入 errorNames
-                errorNames.Add nm.Name
+                errorNames.Add nm.name
                 GoTo NextName
             End If
         Next i
@@ -104,16 +104,16 @@ Function SortNm(ByVal AllNames As Names, ByVal Target As Range) As Collection
         ' Starting from the current edited question, find out the sub-problems to be executed below, and add them to the collection OutputNames (TodoNames) to be done according to their order
         For Each nmRow In nmRows
             If nmRow >= minRow And nmRow <= maxRow Then
-                If InStr(1, nm.Name, "sheet", vbTextCompare) = 0 Then
-                    OutputNames.Add CreateDictionary(nm.Name, nm.refersTo)
+                If InStr(1, nm.name, "sheet", vbTextCompare) = 0 Then
+                    OutputNames.Add CreateDictionary(nm.name, nm.refersTo)
                     ' 判斷該條件是否含有其他子問題，若有，則將子問題加入 OutputNames
                     ' Add sub-problems to OutputNames
                     Dim nmIndex As Variant
                     For Each nmIndex In SortNm(AllNames, Range(nm.refersTo))
                         OutputNames.Add nmIndex
                     Next nmIndex
-                ElseIf InStr(1, nm.Name, "sheet", vbTextCompare) > 0 Then
-                    OutputNames.Add CreateDictionary(nm.Name, nm.refersTo)
+                ElseIf InStr(1, nm.name, "sheet", vbTextCompare) > 0 Then
+                    OutputNames.Add CreateDictionary(nm.name, nm.refersTo)
                 End If
             End If
         Next nmRow
@@ -128,7 +128,7 @@ End Function
 
 '根據 nmName 取得命名規則判斷時所有行數
 ' Get all row numbers when naming rules are judged according to nmName
-Function GetNmRows(Name As String) As Integer()
+Function GetNmRows(name As String) As Integer()
     ' 宣告 nmRowsTmp 陣列，用於暫存命名規則判斷時的所有行數
     Dim nmRowsTmp() As Integer
     ' 使使用 Regex 取出命名規則中的行數 (ex: "D21.v_or_D32.v_or_D35.v_orD38.v_or_D56.v__show" -> "21,32,35,38,56")，並存入 nmRowsTmp 陣列
@@ -140,7 +140,7 @@ Function GetNmRows(Name As String) As Integer()
     regex.Pattern = "[0-9]+"
     regex.Global = True
     Dim matches As Object
-    Set matches = regex.Execute(Name)
+    Set matches = regex.Execute(name)
     
     ReDim nmRowsTmp(0 To matches.Count - 1) ' 設定臨時陣列的大小
     
@@ -353,6 +353,9 @@ Function CheckFieldValue(columnInfo As Variant) As String
     ' 小寫轉大寫
     ' Lowercase to uppercase
     fieldValue = UCase(fieldValue)
+    If fieldValue = "NULLVALUE" Then
+        fieldValue = ""
+    End If
 
     ' 獲取目標欄位的值
     ' Get the value of the target field
@@ -363,11 +366,19 @@ Function CheckFieldValue(columnInfo As Variant) As String
     ' 小寫轉大寫
     ' Lowercase to uppercase
     targetValue = UCase(targetValue)
+    ' 去除空白
+    ' Remove spaces
+    targetValue = Replace(targetValue, " ", "")
+    
 
     ' 檢查目標欄位的值是否等於條件欄位的值，或目標欄位包含條件欄位的值，且該欄位並非隱藏狀態
     ' Check if the value of the target field is equal to the value of the condition field, or if the target field contains the value of the condition field
-    If (targetValue = fieldValue Or InStr(1, targetValue, fieldValue, vbTextCompare) > 0) And Range(columnName).EntireRow.Hidden = False Then
-        CheckFieldValue = "True"
+    If targetValue = fieldValue Or InStr(1, targetValue, fieldValue, vbTextCompare) > 0 And fieldValue <> "" And targetValue <> "" Then
+        If Range(columnName).EntireRow.Hidden = False Then
+            CheckFieldValue = "True"
+        Else
+            CheckFieldValue = "False"
+        End If
     Else
         CheckFieldValue = "False"
     End If
@@ -430,6 +441,7 @@ Function CreateDictionary(name As String, refersTo As String) As Object
     dict.Add "RefersTo", refersTo
     Set CreateDictionary = dict
 End Function
+
 
 
 
