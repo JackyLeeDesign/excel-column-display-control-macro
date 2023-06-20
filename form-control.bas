@@ -43,9 +43,16 @@ Function CheckCurrentCellName(Optional ByVal Target As Range = Nothing)
     Set wb = ActiveWorkbook
     Set ws = wb.ActiveSheet
 
+    ' 宣告變數 AllNames 用於存放ws.Names事先排序之陣列
+    ' Declare variable AllNames to store the array sorted by ws.Names in advance
+    Dim AllNames As New Collection
+    ' 呼叫 ArrangeNames 將 ws.Names 依照命名規則分類，並存入 AllNames
+    ' Call ArrangeNames to classify ws.Names according to the naming rules and store them in AllNames
+    Set AllNames = ArrangeNames(ws.Names)
+
     ' 整理命名規則，並回傳待處理之命名規則(問題條件)
     ' Organize the naming rules and return the naming rules to be processed (problem conditions)
-    Set TodoNames = SortNm(ws.Names, Target)
+    Set TodoNames = SortNm(AllNames, Target)
 
     ' 依序將問題欄位顯示或隱藏
     ' Show or hide the problem fields in order
@@ -59,9 +66,60 @@ ErrorHandler:
     MsgBox "程式在讀取命名規則時發生錯誤，錯誤內容:" & Err.Description & ", 請確認該條件規則名稱與參照範圍是否正確，若仍無法排除問題，請聯繫 AI&T 同仁。" & vbCrLf & "The program encountered an error while reading the naming rules, the error content is:" & Err.Description & ", please check whether the condition rule name and reference range are correct, if the problem cannot be eliminated, please contact AI&T colleagues."
 End Function
 
+Function ArrangeNames(ByVal InputNames As Names) As Collection
+    ' 將輸入之 Names 分成三類，
+    ' 1.名稱包含 "sheet" 之 Names
+    ' 2.名稱包含 "or" or "and" 之 Names
+    ' 3.其餘 Names
+    ' Sort the input Names into three categories,
+    ' 1. Names containing "sheet"
+    ' 2. Names containing "or" or "and"
+    ' 3. Other Names
+    Dim AllNames As New Collection
+    Dim SheetNames As New Collection
+    Dim AndOrNames As New Collection
+    
+    '依序讀取 Names，開始分類
+    Dim nm As name
+    Dim nmObj As Object
+    For Each nm In InputNames
+        If InStr(1, nm.Name, "sheet", vbTextCompare) > 0 Then
+            Set nmObj = New Collection
+            nmObj.Add nm.Name, "Name"
+            nmObj.Add nm.RefersTo, "RefersTo"
+            SheetNames.Add nmObj
+        ' 再找出所有名稱包含 "or" or "and" 之 Names，並存入變數
+        ' Then find all the Names containing "or" or "and" and store them in variables
+        ElseIf InStr(1, nm.Name, "or", vbTextCompare) > 0 Or InStr(1, nm.Name, "and", vbTextCompare) > 0 Then
+            Set nmObj = New Collection
+            nmObj.Add nm.Name, "Name"
+            nmObj.Add nm.RefersTo, "RefersTo"
+            AndOrNames.Add nmObj
+        Else
+            Set nmObj = New Collection
+            nmObj.Add nm.Name, "Name"
+            nmObj.Add nm.RefersTo, "RefersTo"
+            AllNames.Add nmObj
+        End If
+    Next nm
+
+    ' 最後將三類按照以下順序合併
+    ' Finally, merge the three categories in the following order
+    ' 1. Other Names
+    ' 2. Names containing "or" or "and"
+    ' 3. Names containing "sheet" 
+    For Each nmObj In AndOrNames
+        AllNames.Add nmObj
+    Next nmObj
+    For Each nmObj In SheetNames
+        AllNames.Add nmObj
+    Next nmObj
+    Set ArrangeNames = AllNames
+End Function
+
 ' 主要邏輯:整理命名規則，並回傳待處理之命名規則(問題條件)
 ' Main logic: Organize the naming rules and return the naming rules to be processed (problem conditions)
-Function SortNm(ByVal AllNames As Names, ByVal Target As Range) As Collection
+Function SortNm(ByVal AllNames As Collection, ByVal Target As Range) As Collection
     ' 宣告變數
     ' Declare variables
     Dim OutputNames As New Collection
@@ -81,22 +139,26 @@ Function SortNm(ByVal AllNames As Names, ByVal Target As Range) As Collection
     ' Record the naming rule name with problems in the process and skip the rule
     Dim errorNames As New Collection
 
+    ' 依據執行Collention中的每一個元素，執行下列動作
+    ' Perform the following actions for each element in the Collention
+    Dim nm As Object
+
     For Each nm In AllNames
         ' 若命名規則名稱包含在 errorNames Collection 中，則跳過該規則，
         ' If the naming rule name is included in errorNames, skip the rule
-        If IsStringInCollection(nm.name, errorNames) Then
+        If IsStringInCollection(nm("Name"), errorNames) Then
             GoTo NextName
         End If
 
-        nmRows = GetNmRows(nm.name)
+        nmRows = GetNmRows(nm("Name"))
         ' 檢查該問題要顯示或隱藏的欄位範圍是否包含問題本身，若包含，表示該問題之邏輯設定錯誤，顯示提醒後並跳過該規則
-        selfMinRow = Range(nm.refersTo).Row
-        selfMaxRow = Range(nm.refersTo).Row + Range(nm.refersTo).Rows.Count - 1
+        selfMinRow = Range(nm("RefersTo")).Row
+        selfMaxRow = Range(nm("RefersTo")).Row + Range(nm("RefersTo")).Rows.Count - 1
         For i = selfMinRow To selfMaxRow
-            If InStr(1, nm.name, "sheet", vbTextCompare) = 0 And IsInArray(i, nmRows) Then
-                MsgBox (nm.name & " 該命名規則名稱出現在參照範圍裏面，可能導致無窮迴圈，已自動忽略該規則。")
+            If InStr(1, nm("Name"), "sheet", vbTextCompare) = 0 And IsInArray(i, nmRows) Then
+                MsgBox (nm("Name") & " 該命名規則名稱出現在參照範圍裏面，可能導致無窮迴圈，已自動忽略該規則。")
                 ' 將該規則名稱加入 errorNames
-                errorNames.Add nm.name
+                errorNames.Add nm("Name")
                 GoTo NextName
             End If
         Next i
@@ -104,16 +166,16 @@ Function SortNm(ByVal AllNames As Names, ByVal Target As Range) As Collection
         ' Starting from the current edited question, find out the sub-problems to be executed below, and add them to the collection OutputNames (TodoNames) to be done according to their order
         For Each nmRow In nmRows
             If nmRow >= minRow And nmRow <= maxRow Then
-                If InStr(1, nm.name, "sheet", vbTextCompare) = 0 Then
-                    OutputNames.Add CreateDictionary(nm.name, nm.refersTo)
+                If InStr(1, nm("Name"), "sheet", vbTextCompare) = 0 Then
+                    OutputNames.Add CreateDictionary(nm("Name"), nm("RefersTo"))
                     ' 判斷該條件是否含有其他子問題，若有，則將子問題加入 OutputNames
                     ' Add sub-problems to OutputNames
                     Dim nmIndex As Variant
-                    For Each nmIndex In SortNm(AllNames, Range(nm.refersTo))
+                    For Each nmIndex In SortNm(AllNames, Range(nm("RefersTo")))
                         OutputNames.Add nmIndex
                     Next nmIndex
-                ElseIf InStr(1, nm.name, "sheet", vbTextCompare) > 0 Then
-                    OutputNames.Add CreateDictionary(nm.name, nm.refersTo)
+                ElseIf InStr(1, nm("Name"), "sheet", vbTextCompare) > 0 Then
+                    OutputNames.Add CreateDictionary(nm("Name"), nm("RefersTo"))
                 End If
             End If
         Next nmRow
@@ -137,7 +199,7 @@ Function GetNmRows(name As String) As Integer()
     Set regex = CreateObject("VBScript.RegExp")
     ' 條件為：匹配需以1碼字母開頭以及多個數字結尾，但結果僅回傳數字
     ' The condition is: match the need to start with 1 code letter and end with multiple numbers, but only return numbers
-    regex.Pattern = "[0-9]+"
+    regex.Pattern = "[0-9]+\."
     regex.Global = True
     Dim matches As Object
     Set matches = regex.Execute(name)
