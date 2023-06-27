@@ -22,6 +22,13 @@ End Sub
 Private Sub Worksheet_Change(ByVal Target As Range)
     If Target.Columns.Count = 1 And Target.Rows.Count = 1 Then
         UrModuleName.CheckCurrentCellName Target
+    Else
+        ' 顯示錯誤訊息，內容可自行修改與調整
+        ' Display error message, the content can be modified and adjusted by yourself
+        MsgBox "不可同時編輯多個儲存格，請重新選取。" & vbCrLf & "Multiple cells cannot be selected at the same time, please reselect."
+        ' 取消此次編輯
+        ' Cancel this edit
+        Application.Undo
     End If
 End Sub
 
