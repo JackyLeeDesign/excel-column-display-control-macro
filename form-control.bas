@@ -10,14 +10,6 @@
 ' 將底下 Worksheet_Open 放置於 "This Workbook" 內, Worksheet_Activate 和  Worksheet_Change 放在需要執行巨集的工作表內。
 ' Put the following Worksheet_Activate and Worksheet_Change in the worksheet that needs to execute the macro.
 ' ====================================================================================================
-Private Sub Worksheet_Open()
-    UrModuleName.CheckCurrentCellName
-End Sub
-
-Private Sub Worksheet_Activate()
-    UrModuleName.CheckCurrentCellName
-End Sub
-
 ' 當工作表內容有變更時，自動執行 CheckCurrentCellName
 Private Sub Worksheet_Change(ByVal Target As Range)
     If Target.Columns.Count = 1 And Target.Rows.Count = 1 Then
