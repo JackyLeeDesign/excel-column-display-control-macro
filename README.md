@@ -1,6 +1,6 @@
 # Excel VBA 巨集 - 問答式表單程式
 用於在 Excel 中建立具有條件要求的問答式表單。該巨集能根據使用者的回答自動顯示或隱藏特定的問題，讓表單填寫更加靈活和便捷。
-![image](https://github.com/JackyLeeDesign/excel-column-display-control-macro/blob/main/DEMO.gif)
+![image](https://github.com/JackyLeeDesign/excel-column-display-control-macro-cus/blob/main/DEMO.gif)
 
 ## 如何使用
 1.	開啟 Excel 檔案，並按下 Alt + F11 開啟巨集編輯器。
